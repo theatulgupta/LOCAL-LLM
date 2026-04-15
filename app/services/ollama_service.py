@@ -89,10 +89,11 @@ class OllamaService:
                 "Ollama server is not accessible at " + self.base_url
             )
 
-        log_ollama_call(logger, model, len(prompt))
+        resolved_model = self.resolve_model(model)
+        log_ollama_call(logger, resolved_model, len(prompt))
 
         payload = {
-            "model": model,
+            "model": resolved_model,
             "prompt": prompt,
             "temperature": temperature,
             "top_p": top_p,
@@ -113,7 +114,9 @@ class OllamaService:
             if stream:
                 return self._handle_streaming_response(response)
             else:
-                return response.json()
+                data = response.json()
+                data.setdefault("model", resolved_model)
+                return data
 
         except requests.Timeout:
             error_msg = f"Ollama request timed out (timeout: {self.settings.ollama_timeout}s)"
@@ -133,7 +136,13 @@ class OllamaService:
         try:
             for line in response.iter_lines():
                 if line:
-                    yield response.json() if hasattr(response, 'json') else {}
+                    import json
+                    try:
+                        chunk = json.loads(line)
+                        yield chunk
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON line: {line}")
+                        continue
         except Exception as e:
             logger.error(f"Error handling streaming response: {e}")
             raise OllamaError(f"Error during streaming: {str(e)}")
@@ -153,6 +162,33 @@ class OllamaService:
         except Exception as e:
             logger.error(f"Failed to list models: {e}")
             return []
+
+    def resolve_model(self, requested_model: Optional[str] = None) -> str:
+        """Pick a valid local model and gracefully fall back when needed."""
+
+        available_models = self.list_models()
+        fallback_model = self.settings.ollama_model
+        requested = (requested_model or fallback_model).strip()
+
+        if requested in available_models:
+            return requested
+
+        if fallback_model in available_models:
+            logger.warning(
+                "Requested model %s not available; falling back to %s",
+                requested,
+                fallback_model,
+            )
+            return fallback_model
+
+        if available_models:
+            logger.warning(
+                "No preferred model available; falling back to %s",
+                available_models[0],
+            )
+            return available_models[0]
+
+        return requested
 
 
 # Singleton instance

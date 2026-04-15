@@ -15,6 +15,7 @@ from app.models import (
     StreamingQueryResponse
 )
 from app.services.ollama_service import get_ollama_service
+from app.services.rag_service import get_rag_service
 from app.middleware.rate_limit import get_rate_limiter
 from app.utils.exceptions import (
     OllamaConnectionError,
@@ -108,20 +109,28 @@ async def ask_llm(
     client_ip: str = Depends(apply_rate_limit)
 ):
     """
-    Send a query to the LLM
+    Send a query to the LLM with optional RAG context from lab notes
 
-    Returns the generated response from the model.
+    Returns the generated response from the model, enriched with local context.
     """
     start_time = time.time()
     log_request(logger, "POST", "/api/ask", client_ip)
 
     try:
         ollama_service = get_ollama_service()
+        rag_service = get_rag_service()
 
         logger.debug(f"Processing query from {client_ip}: {query.prompt[:50]}...")
 
+        # Enrich prompt with RAG context if enabled
+        final_prompt = query.prompt
+        rag_context = None
+        if rag_service.is_enabled():
+            final_prompt, rag_context = rag_service.build_prompt(query.prompt)
+            logger.debug(f"RAG enriched prompt with {len(rag_context.sources)} sources")
+
         result = ollama_service.generate(
-            prompt=query.prompt,
+            prompt=final_prompt,
             model=query.model,
             temperature=query.temperature,
             top_p=query.top_p,
@@ -130,13 +139,27 @@ async def ask_llm(
             stream=False
         )
 
-        response = QueryResponse(
-            response=result.get("response", ""),
-            model=query.model,
-            prompt=query.prompt,
-            total_duration=result.get("total_duration"),
-            load_duration=result.get("load_duration")
-        )
+        response_dict = {
+            "response": result.get("response", ""),
+            "model": query.model,
+            "prompt": query.prompt,
+            "total_duration": result.get("total_duration"),
+            "load_duration": result.get("load_duration")
+        }
+
+        # Add RAG metadata if context was used
+        if rag_context:
+            response_dict["rag"] = {
+                "enabled": True,
+                "sources_count": len(rag_context.sources),
+                "corpus_path": rag_context.corpus_path,
+                "indexed_files": rag_context.indexed_files,
+                "indexed_chunks": rag_context.indexed_chunks
+            }
+        else:
+            response_dict["rag"] = {"enabled": False}
+
+        response = QueryResponse(**response_dict)
 
         duration = (time.time() - start_time) * 1000
         log_response(logger, "POST", "/api/ask", 200, duration)
@@ -162,20 +185,37 @@ async def ask_llm_stream(
     client_ip: str = Depends(apply_rate_limit)
 ):
     """
-    Stream response from the LLM
+    Stream response from the LLM with RAG context
 
-    Returns streamed tokens as they are generated.
+    Returns streamed tokens as they are generated, enriched with local context.
     """
     start_time = time.time()
     log_request(logger, "POST", "/api/ask/stream", client_ip)
 
     try:
         ollama_service = get_ollama_service()
+        rag_service = get_rag_service()
 
         async def generate():
             try:
+                # Enrich prompt with RAG context if enabled
+                final_prompt = query.prompt
+                rag_context = None
+                if rag_service.is_enabled():
+                    final_prompt, rag_context = rag_service.build_prompt(query.prompt)
+                    logger.debug(f"RAG enriched stream prompt with {len(rag_context.sources)} sources")
+
+                # Send RAG metadata first if available
+                if rag_context:
+                    yield json.dumps({
+                        "type": "rag_metadata",
+                        "enabled": True,
+                        "sources_count": len(rag_context.sources),
+                        "corpus_path": rag_context.corpus_path
+                    }).encode() + b"\n"
+
                 response_iter = ollama_service.generate(
-                    prompt=query.prompt,
+                    prompt=final_prompt,
                     model=query.model,
                     temperature=query.temperature,
                     top_p=query.top_p,
@@ -187,12 +227,13 @@ async def ask_llm_stream(
                 for chunk in response_iter:
                     if isinstance(chunk, dict) and "response" in chunk:
                         yield json.dumps({
+                            "type": "token",
                             "token": chunk["response"],
                             "model": query.model
                         }).encode() + b"\n"
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
-                yield json.dumps({"error": str(e)}).encode()
+                yield json.dumps({"type": "error", "error": str(e)}).encode() + b"\n"
 
         duration = (time.time() - start_time) * 1000
         log_response(logger, "POST", "/api/ask/stream", 200, duration)
@@ -214,6 +255,94 @@ async def ask_llm_stream(
         raise OllamaError(f"Streaming error: {str(e)}")
 
 
+@router.get("/rag/status")
+async def rag_status(request: Request, client_ip: str = Depends(apply_rate_limit)):
+    """Get RAG service status and indexing info"""
+    start_time = time.time()
+    log_request(logger, "GET", "/api/rag/status", client_ip)
+
+    try:
+        rag_service = get_rag_service()
+        status = rag_service.status()
+
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "GET", "/api/rag/status", 200, duration)
+
+        return status
+    except Exception as e:
+        logger.error(f"Error getting RAG status: {e}")
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "GET", "/api/rag/status", 500, duration)
+        raise OllamaError(f"Error retrieving RAG status: {str(e)}")
+
+
+@router.post("/rag/search")
+async def rag_search(
+    request: Request,
+    query: str = Query(..., min_length=1, description="Search query"),
+    top_k: int = Query(3, ge=1, le=10, description="Number of top results"),
+    client_ip: str = Depends(apply_rate_limit)
+):
+    """Search the local notebook corpus"""
+    start_time = time.time()
+    log_request(logger, "GET", "/api/rag/search", client_ip)
+
+    try:
+        rag_service = get_rag_service()
+        context = rag_service.search(query, top_k=top_k)
+
+        result = {
+            "question": context.question,
+            "context": context.context,
+            "sources": [
+                {
+                    "path": src.source_path,
+                    "chunk_index": src.chunk_index,
+                    "score": src.score,
+                    "snippet": src.snippet,
+                    "cell_type": src.cell_type,
+                    "cell_id": src.cell_id
+                }
+                for src in context.sources
+            ],
+            "enabled": context.enabled,
+            "indexed_files": context.indexed_files,
+            "indexed_chunks": context.indexed_chunks
+        }
+
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "GET", "/api/rag/search", 200, duration)
+
+        return result
+    except Exception as e:
+        logger.error(f"Error searching RAG corpus: {e}")
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "GET", "/api/rag/search", 500, duration)
+        raise OllamaError(f"Error searching corpus: {str(e)}")
+
+
+@router.post("/rag/refresh")
+async def rag_refresh(request: Request, client_ip: str = Depends(apply_rate_limit)):
+    """Force refresh the RAG index"""
+    start_time = time.time()
+    log_request(logger, "POST", "/api/rag/refresh", client_ip)
+
+    try:
+        rag_service = get_rag_service()
+        rag_service.refresh()
+        status = rag_service.status()
+
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "POST", "/api/rag/refresh", 200, duration)
+
+        return {"message": "RAG index refreshed", **status}
+    except Exception as e:
+        logger.error(f"Error refreshing RAG index: {e}")
+        duration = (time.time() - start_time) * 1000
+        log_response(logger, "POST", "/api/rag/refresh", 500, duration)
+        raise OllamaError(f"Error refreshing RAG index: {str(e)}")
+
+
 @router.get("/")
 async def root(request: Request):
     """Root endpoint"""
@@ -221,13 +350,16 @@ async def root(request: Request):
     log_request(logger, "GET", "/", client_ip)
 
     return {
-        "message": "Local LLM Server Running 🚀",
+        "message": "Local LLM Server with RAG 🚀",
         "version": "1.0.0",
         "endpoints": {
             "health": "/api/health",
             "ask": "/api/ask",
             "ask_stream": "/api/ask/stream",
             "models": "/api/models",
+            "rag_status": "/api/rag/status",
+            "rag_search": "/api/rag/search",
+            "rag_refresh": "/api/rag/refresh",
             "docs": "/docs"
         }
     }

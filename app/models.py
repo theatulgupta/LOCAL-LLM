@@ -15,7 +15,7 @@ class QueryRequest(BaseModel):
         description="The prompt to send to the LLM"
     )
     model: Optional[str] = Field(
-        default="llama3",
+        default="qwen2.5-coder:7b",
         description="Ollama model to use"
     )
     temperature: Optional[float] = Field(
@@ -44,6 +44,16 @@ class QueryRequest(BaseModel):
         default=False,
         description="Whether to stream the response"
     )
+    use_rag: Optional[bool] = Field(
+        default=True,
+        description="Whether to enrich the prompt with local lab context"
+    )
+    rag_top_k: Optional[int] = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Number of local lab chunks to include"
+    )
 
     @field_validator('prompt')
     @classmethod
@@ -60,6 +70,18 @@ class QueryResponse(BaseModel):
     response: str = Field(..., description="Generated response from the LLM")
     model: str = Field(..., description="Model used")
     prompt: str = Field(..., description="Original prompt")
+    requested_model: Optional[str] = Field(
+        default=None,
+        description="Model requested by the client"
+    )
+    context_used: bool = Field(
+        default=False,
+        description="Whether local RAG context was injected"
+    )
+    context_sources: List["RagSource"] = Field(
+        default_factory=list,
+        description="Matched local context sources"
+    )
     total_duration: Optional[float] = Field(
         default=None,
         description="Total duration in nanoseconds"
@@ -67,6 +89,10 @@ class QueryResponse(BaseModel):
     load_duration: Optional[float] = Field(
         default=None,
         description="Model load duration in nanoseconds"
+    )
+    rag: Optional[dict] = Field(
+        default=None,
+        description="RAG metadata (enabled, sources_count, corpus_path, etc.)"
     )
 
 
@@ -109,3 +135,46 @@ class AvailableModelsResponse(BaseModel):
 
     models: List[str] = Field(..., description="List of available model names")
     count: int = Field(..., description="Number of available models")
+
+
+class RagSource(BaseModel):
+    """Matched local note or notebook chunk."""
+
+    source_path: str = Field(..., description="Relative source file path")
+    chunk_index: int = Field(..., description="Chunk index within the source")
+    score: float = Field(..., description="Similarity score")
+    snippet: str = Field(..., description="Matched text snippet")
+    cell_type: Optional[str] = Field(default=None, description="Notebook cell type")
+    cell_id: Optional[str] = Field(default=None, description="Notebook cell id")
+
+
+class RagSearchRequest(BaseModel):
+    """Request model for searching the local RAG corpus."""
+
+    question: str = Field(..., min_length=1, max_length=4096)
+    top_k: Optional[int] = Field(default=3, ge=1, le=10)
+
+
+class RagSearchResponse(BaseModel):
+    """Response from the local RAG search endpoint."""
+
+    question: str
+    context: str
+    sources: List[RagSource]
+    enabled: bool
+    indexed_files: int
+    indexed_chunks: int
+    corpus_path: str
+
+
+class RagStatusResponse(BaseModel):
+    """RAG index status."""
+
+    enabled: bool
+    ready: bool
+    corpus_path: str
+    indexed_files: int
+    indexed_chunks: int
+
+
+QueryResponse.model_rebuild()

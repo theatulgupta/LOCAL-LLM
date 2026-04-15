@@ -1,231 +1,176 @@
 #!/usr/bin/env python3
-"""
-Project Summary and Getting Started
-
-This is a production-grade Local LLM Server built with FastAPI and Ollama.
-Run this script to see project structure and next steps.
-"""
-
-import os
-import json
-from pathlib import Path
-
-def print_header(text):
-    """Print formatted header"""
-    print(f"\n{'='*60}")
-    print(f"  {text}")
-    print('='*60)
-
-def print_section(title, items):
-    """Print formatted section"""
-    print(f"\n📋 {title}")
-    print("-" * 60)
-    for item in items:
-        print(f"  {item}")
+"""Project Summary and Statistics"""
 
 def main():
-    print("\n")
-    print("🚀 " + "="*56)
-    print("    LOCAL LLM SERVER - Production Grade Project")
-    print("="*60)
-
-    # Project Overview
-    print_section("Project Structure", [
-        "✅ app/                  - Main application package",
-        "✅ app/routes/           - API endpoint handlers",
-        "✅ app/services/         - Business logic (Ollama integration)",
-        "✅ app/middleware/       - Middleware (rate limiting, CORS)",
-        "✅ app/utils/            - Utilities (exceptions, logging)",
-        "✅ tests/                - Comprehensive test suite",
-        "✅ Docker                - Containerization support",
-    ])
-
-    # Files Overview
-    print_section("Key Files", [
-        "📄 README.md             - Complete documentation",
-        "📄 QUICKSTART.md         - 5-minute setup guide",
-        "📄 ARCHITECTURE.md       - System architecture & design",
-        "📄 DEPLOYMENT.md         - Production deployment guide",
-        "📄 CONTRIBUTING.md       - Contribution guidelines",
-        "⚙️  requirements.txt      - Python dependencies",
-        "🐳 Dockerfile           - Container image",
-        "🐳 docker-compose.yml   - Multi-container orchestration",
-        "📝 .env.example         - Configuration template",
-        "🧪 pytest.ini           - Test configuration",
-        "📦 Makefile             - Common commands",
-    ])
-
-    # Quick Start
-    print_section("Quick Start (5 Minutes)", [
-        "1. bash init.sh",
-        "2. make install",
-        "3. cp .env.example .env",
-        "4. ollama run llama3  (in another terminal)",
-        "5. make dev",
-        "",
-        "Then open: http://localhost:8000/docs"
-    ])
-
-    # Make Commands
-    print_section("Make Commands", [
-        "make help         - Show all commands",
-        "make install      - Setup environment",
-        "make dev          - Start with hot reload",
-        "make prod         - Production server",
-        "make test         - Run tests",
-        "make test-cov     - Tests with coverage",
-        "make format       - Auto-format code",
-        "make lint         - Code quality check",
-        "make docker-up    - Start Docker containers",
-        "make docker-down  - Stop containers",
-    ])
-
+    """Display project summary"""
+    
+    print("\n" + "="*70)
+    print(" " * 15 + "LOCAL LLM SERVER - PROJECT SUMMARY")
+    print("="*70)
+    
     # Features
-    print_section("Core Features", [
-        "✨ FastAPI - Modern async web framework",
-        "🤖 Ollama Integration - Local LLM inference",
-        "📊 Pydantic - Input/output validation",
-        "⚡ Rate Limiting - Token bucket algorithm",
-        "🔄 Streaming - Real-time token streaming",
-        "📝 Logging - Structured JSON logging",
-        "🧪 Tests - Comprehensive test suite (pytest)",
-        "🐳 Docker - Container orchestration",
-        "📖 Auto Docs - Swagger UI + ReDoc",
-        "🔐 Error Handling - Proper HTTP status codes",
-    ])
-
+    print("\n📋 FEATURES:")
+    print("-" * 70)
+    features = [
+        "✅ FastAPI Backend - High-performance async web framework",
+        "✅ Ollama Integration - Local LLM with qwen2.5-coder:7b model",
+        "✅ RAG System - Retrieval-augmented generation from notebooks",
+        "✅ Streaming Responses - Real-time token streaming",
+        "✅ Rate Limiting - 100 requests per minute per IP",
+        "✅ Health Checks - Ollama connectivity monitoring",
+        "✅ Request Logging - Full request/response logging",
+        "✅ Error Handling - Comprehensive error management",
+        "✅ CORS Support - Cross-origin requests enabled",
+        "✅ Pydantic Validation - Type-safe request/response models",
+        "✅ Production Ready - Optimized for exam scenario",
+    ]
+    for feature in features:
+        print(f"  {feature}")
+    
+    # Project Structure
+    print("\n📁 PROJECT STRUCTURE:")
+    print("-" * 70)
+    structure = [
+        "🔧 app/main.py - FastAPI application factory & entry point",
+        "🔧 app/config.py - Configuration and settings management",
+        "🔧 app/models.py - Pydantic request/response models",
+        "🔧 app/routes/ - API endpoint handlers (/api/ask, /api/rag/*, etc)",
+        "⚙️ app/services/ - Business logic (Ollama, RAG retrieval)",
+        "🔒 app/middleware/ - Rate limiting and request processing",
+        "❌ app/utils/ - Logging, exceptions, helper functions",
+        "🧪 tests/ - Unit and integration test suite",
+        "📄 README.md - Project overview and features",
+        "📄 QUICKSTART.md - Getting started guide",
+        "📄 DEPLOYMENT.md - Deployment instructions (no Docker)",
+        "📄 ARCHITECTURE.md - System architecture & design",
+        "📄 CONTRIBUTING.md - Contribution guidelines",
+        "🐍 client.py - Python test client for API",
+        "📦 pyproject.toml - Project dependencies (uv)",
+    ]
+    for item in structure:
+        print(f"  {item}")
+    
     # API Endpoints
-    print_section("Main API Endpoints", [
-        "GET  /                    - Root info",
-        "GET  /api/health          - Health check",
-        "GET  /api/models          - List models",
-        "POST /api/ask             - Query LLM",
-        "POST /api/ask/stream      - Stream response",
-        "GET  /docs                - Interactive docs",
-    ])
-
-    # Example Requests
-    print_section("Example Requests", [
-        "curl http://localhost:8000/api/health",
-        "",
-        "curl -X POST http://localhost:8000/api/ask \\",
-        "  -H 'Content-Type: application/json' \\",
-        "  -d '{\"prompt\": \"What is AI?\"}'",
-        "",
-        "python client.py 'What is Python?'",
-        "python client.py --stream 'Write a poem'",
-    ])
-
-    # Best Practices Implemented
-    print_section("Production Best Practices", [
-        "✅ Modular architecture with separation of concerns",
-        "✅ Custom exception handling with proper HTTP codes",
-        "✅ Structured logging with JSON output",
-        "✅ Comprehensive input validation with Pydantic",
-        "✅ Rate limiting to prevent abuse",
-        "✅ Health checks and service monitoring",
-        "✅ Async/await for non-blocking I/O",
-        "✅ Connection pooling and retry logic",
-        "✅ Docker support with docker-compose",
-        "✅ Configurable via environment variables",
-        "✅ 80%+ code coverage with pytest",
-        "✅ Comprehensive documentation",
-    ])
-
-    # Next Steps
-    print_section("Next Steps", [
-        "1. Read QUICKSTART.md for immediate setup",
-        "2. Install Ollama from https://ollama.ai",
-        "3. Run: make install && make dev",
-        "4. Visit: http://localhost:8000/docs",
-        "5. Test endpoints with client.py",
-        "6. Read ARCHITECTURE.md to understand design",
-        "7. Deploy with DEPLOYMENT.md guide",
-    ])
-
-    # Interview Preparation
-    print_section("Interview Explanation", [
-        "\"I built a production-grade LLM inference server using",
-        "FastAPI and Ollama. The system features:",
-        "",
-        "• RESTful API with streaming support",
-        "• Request validation using Pydantic",
-        "• Rate limiting with token bucket algorithm",
-        "• Modular architecture (routes, services, utils)",
-        "• Structured JSON logging for observability",
-        "• Comprehensive error handling",
-        "• Full test coverage with pytest",
-        "• Docker containerization",
-        "• Production-ready deployment guides",
-        "",
-        "This demonstrates API design, system architecture,",
-        "error handling, testing, and DevOps practices.\"",
-    ])
-
+    print("\n🔌 API ENDPOINTS:")
+    print("-" * 70)
+    endpoints = [
+        "GET  /api/health - Health check & Ollama status",
+        "GET  /api/models - List available Ollama models",
+        "POST /api/ask - Query LLM with RAG context injection",
+        "POST /api/ask/stream - Stream tokens in real-time",
+        "GET  /api/rag/status - Get RAG index info",
+        "GET  /api/rag/search - Search notebook corpus",
+        "POST /api/rag/refresh - Force RAG index rebuild",
+        "GET  /docs - OpenAPI/Swagger documentation",
+    ]
+    for endpoint in endpoints:
+        print(f"  {endpoint}")
+    
+    # Quick Start Commands
+    print("\n⚡ QUICK START COMMANDS:")
+    print("-" * 70)
+    commands = [
+        "uv sync                 - Install all dependencies",
+        "ollama serve            - Start Ollama service",
+        "uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+        "                        - Start dev server with auto-reload",
+        "uv run pytest tests/    - Run all tests",
+        "uv run python client.py - Test API with sample client",
+    ]
+    for cmd in commands:
+        print(f"  {cmd}")
+    
     # Technology Stack
-    print_section("Technology Stack", [
-        "Backend:     FastAPI, Uvicorn",
-        "Validation:  Pydantic",
-        "LLM:         Ollama",
-        "Testing:     pytest",
-        "Docker:      Docker, docker-compose",
-        "Monitoring:  Python logging",
-        "Format:      Black, isort",
-        "Linting:     flake8, mypy",
-    ])
+    print("\n🏗️ TECHNOLOGY STACK:")
+    print("-" * 70)
+    tech = [
+        "🐍 Python 3.11+ - Language runtime",
+        "⚡ FastAPI - Modern async web framework",
+        "🌐 uvicorn - ASGI application server",
+        "📝 Pydantic - Type validation and serialization", 
+        "🤖 Ollama - Local LLM inference engine",
+        "🧠 RAG - Offline retrieval-augmented generation",
+        "📦 uv - Fast Python package manager",
+        "🧪 pytest - Unit testing framework",
+    ]
+    for item in tech:
+        print(f"  {item}")
+    
+    # Exam Scenario
+    print("\n🎓 EXAM SCENARIO SETUP:")
+    print("-" * 70)
+    scenario = [
+        "📱 Server: Mac M4 (24GB RAM) - Runs FastAPI + Ollama",
+        "📱 Client: MacBook M1 (8GB RAM) - Makes API requests across WiFi",
+        "📚 Knowledge Base: /Users/theatulgupta/Desktop/Study Material/",
+        "   └─ Clustering LAB notebooks indexed for RAG",
+        "🌐 Network: Same WiFi (192.168.x.x local network)",
+        "⏱️ Use Case: During exams - get LLM answers augmented with notes",
+        "✅ Completely Offline - No internet or cloud required",
+    ]
+    for item in scenario:
+        print(f"  {item}")
+    
+    # Key Features
+    print("\n✨ HIGHLIGHTS:")
+    print("-" * 70)
+    highlights = [
+        "✓ Fully Offline - No internet, no cloud, pure local",
+        "✓ RAG Integration - Answers enriched with your notes",
+        "✓ Streaming - Real-time token generation for UX",
+        "✓ Rate Limiting - Fair usage (100 req/min per IP)",
+        "✓ Production Grade - Error handling, logging, monitoring",
+        "✓ Multi-Client - Friend's M4 can serve your M1",
+        "✓ Lightweight - No Docker, just Python + Ollama",
+        "✓ Fast - Optimized for M1/M4 Apple Silicon",
+    ]
+    for item in highlights:
+        print(f"  {item}")
+    
+    # Stats
+    print("\n📊 PROJECT STATISTICS:")
+    print("-" * 70)
+    print("  Lines of Code: ~3000+")
+    print("  Python Files: 15+")
+    print("  Test Coverage: Integration tests included")
+    print("  Documentation: 5 comprehensive guides")
+    print("  API Endpoints: 8 endpoints")
+    print("  Models Supported: Any Ollama model (default: qwen2.5-coder:7b)")
+    
+    # Next Steps
+    print("\n🚀 NEXT STEPS:")
+    print("-" * 70)
+    steps = [
+        "1. On friend's M4: uv sync && ollama serve",
+        "2. On friend's M4: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000",
+        "3. On your M1: Find friend's internal IP (ifconfig)",
+        "4. Test: curl http://<friend-ip>:8000/api/health",
+        "5. Update client.py BASE_URL to friend's IP",
+        "6. Run: python client.py to test full flow",
+        "7. Ready for exam - use /api/ask or /api/ask/stream",
+    ]
+    for step in steps:
+        print(f"  {step}")
+    
+    # Support
+    print("\n💡 TROUBLESHOOTING:")
+    print("-" * 70)
+    troubleshooting = [
+        "• Port 8000 in use? → lsof -i :8000 && kill -9 <PID>",
+        "• Ollama down? → ollama serve in another terminal",
+        "• RAG not indexing? → curl -X POST http://localhost:8000/api/rag/refresh",
+        "• Check logs → tail -f logs/server.log",
+        "• Network issue? → ping <friend-ip> from your machine",
+        "• Slow responses? → Monitor memory with 'top' or Activity Monitor",
+    ]
+    for item in troubleshooting:
+        print(f"  {item}")
+    
+    print("\n" + "="*70)
+    print("  Documentation: README.md | Deployment: DEPLOYMENT.md")
+    print("  Support: Check logs/server.log for detailed error info")
+    print("="*70 + "\n")
 
-    # Important Files Content Summary
-    print_section("Key Modules Summary", [
-        "",
-        "app/main.py",
-        "  → FastAPI app factory, middleware setup, exception handlers",
-        "",
-        "app/config.py",
-        "  → Settings management, logging configuration",
-        "",
-        "app/models.py",
-        "  → Pydantic models for request/response validation",
-        "",
-        "app/routes/llm.py",
-        "  → API endpoints: health, models, ask, ask/stream",
-        "",
-        "app/services/ollama_service.py",
-        "  → Ollama API integration with retry logic",
-        "",
-        "app/middleware/rate_limit.py",
-        "  → Token bucket rate limiter implementation",
-        "",
-        "app/utils/",
-        "  → Custom exceptions, logging utilities",
-        "",
-        "tests/test_routes.py",
-        "  → Comprehensive test suite with 80%+ coverage",
-    ])
-
-    # Final Summary
-    print_header("✅ PROJECT READY TO USE")
-    print("""
-This is a fully functional, production-ready LLM server!
-
-📚 DOCUMENTATION:
-   • README.md       - Complete reference
-   • QUICKSTART.md   - Get started now
-   • ARCHITECTURE.md - Understand the design
-   • DEPLOYMENT.md   - Deploy to production
-
-🚀 START NOW:
-   $ bash init.sh
-   $ make install
-   $ make dev
-
-After installation:
-   → Open browser: http://localhost:8000/docs
-   → Test with: python client.py "Hello"
-   → Check health: curl http://localhost:8000/api/health
-
-Happy coding! 🎉
-""")
-    print("="*60 + "\n")
 
 if __name__ == "__main__":
     main()

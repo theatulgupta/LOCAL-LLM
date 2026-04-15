@@ -1,13 +1,16 @@
 #!/bin/bash
 # Main entry point script
 
-echo "Local LLM Server - Usage"
-echo "======================="
+echo "Local LLM Server - Quick Start"
+echo "=============================="
 echo ""
-echo "Choose launch option:"
+echo "Prerequisites:"
+echo "- Ollama running on http://localhost:11434"
+echo "- Python 3.11+ installed"
 echo ""
-echo "1. Production: bash start.sh"
-echo "2. Development: bash dev.sh"
-echo "3. Docker: docker-compose up"
-echo "4. Run tests: pytest tests/ -v"
+echo "Quick commands:"
+echo "1. Install dependencies: uv sync"
+echo "2. Development server: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+echo "3. Run tests: uv run pytest tests/ -v"
+echo "4. Test with client: uv run python client.py"
 echo ""

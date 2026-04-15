@@ -17,8 +17,16 @@ class Settings(BaseSettings):
 
     # Ollama Settings
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "llama3"
+    ollama_model: str = "qwen2.5-coder:7b"
     ollama_timeout: int = 300  # 5 minutes
+
+    # RAG Settings
+    rag_enabled: bool = True
+    rag_corpus_path: str = "/Users/theatulgupta/Desktop/Study Material/Sem II/Clustering/LAB"
+    rag_top_k: int = 3
+    rag_chunk_size: int = 120
+    rag_chunk_overlap: int = 24
+    rag_max_context_chars: int = 7000
 
     # Rate Limiting
     rate_limit_enabled: bool = True
